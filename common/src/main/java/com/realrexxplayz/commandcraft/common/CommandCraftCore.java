@@ -24,7 +24,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Loader-neutral CommandCraft+ command implementation.
+ * Loader-neutral CommandCore+ command implementation.
  * Data is stored per-world in commandcraft-plus.properties.
  */
 public final class CommandCraftCore {
@@ -40,7 +40,7 @@ public final class CommandCraftCore {
 
         cc.then(Commands.literal("help").executes(c -> {
             c.getSource().sendSuccess(() -> Component.literal(
-                "CommandCraft+: homes, warps, tpa, tpahere, tpaccept, tpdeny, tpacancel, back, spawn, rtp, " +
+                "CommandCore+: homes, warps, tpa, tpahere, tpaccept, tpdeny, tpacancel, back, spawn, rtp, " +
                 "coords, near, whereami, heal, feed, fly, god, vanish, day, night, weather, broadcast, rules, motd, worldinfo."
             ), false);
             c.getSource().sendSuccess(() -> Component.literal(
@@ -150,14 +150,14 @@ public final class CommandCraftCore {
 
         cc.then(Commands.literal("broadcast").requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
             .then(Commands.argument("message", StringArgumentType.greedyString()).executes(c -> {
-                Component message = Component.literal("[CommandCraft+] " + StringArgumentType.getString(c, "message"));
+                Component message = Component.literal("[CommandCore+] " + StringArgumentType.getString(c, "message"));
                 c.getSource().getServer().getPlayerList().broadcastSystemMessage(message, false);
                 return 1;
             })));
 
         cc.then(Commands.literal("rules").executes(c -> {
             c.getSource().sendSuccess(() -> Component.literal(
-                "Server rules have not been configured. An administrator can add them in the CommandCraft+ config in a later release."
+                "Server rules have not been configured. An administrator can add them in the CommandCore+ config in a later release."
             ), false);
             return 1;
         }));
@@ -213,7 +213,7 @@ public final class CommandCraftCore {
                 Properties data = load(c.getSource());
                 data.setProperty("server.motd", StringArgumentType.getString(c, "message"));
                 save(c.getSource(), data);
-                c.getSource().sendSuccess(() -> Component.literal("CommandCraft+ MOTD updated."), true);
+                c.getSource().sendSuccess(() -> Component.literal("CommandCore+ MOTD updated."), true);
                 return 1;
             })));
 
@@ -381,7 +381,7 @@ public final class CommandCraftCore {
         ServerPlayer player = source.getPlayerOrException();
         LastPosition last = LAST_POSITIONS.remove(player.getUUID());
         if (last == null) {
-            source.sendFailure(Component.literal("You do not have a previous CommandCraft+ teleport location."));
+            source.sendFailure(Component.literal("You do not have a previous CommandCore+ teleport location."));
             return 0;
         }
         var level = source.getServer().getLevel(last.dimension());
@@ -419,7 +419,7 @@ public final class CommandCraftCore {
             try (var input = Files.newInputStream(file)) {
                 properties.load(input);
             } catch (IOException e) {
-                source.sendFailure(Component.literal("Could not read CommandCraft+ data: " + e.getMessage()));
+                source.sendFailure(Component.literal("Could not read CommandCore+ data: " + e.getMessage()));
             }
         }
         return properties;
@@ -430,10 +430,10 @@ public final class CommandCraftCore {
         try {
             Files.createDirectories(file.getParent());
             try (var output = Files.newOutputStream(file)) {
-                properties.store(output, "CommandCraft+ world data");
+                properties.store(output, "CommandCore+ world data");
             }
         } catch (IOException e) {
-            source.sendFailure(Component.literal("Could not save CommandCraft+ data: " + e.getMessage()));
+            source.sendFailure(Component.literal("Could not save CommandCore+ data: " + e.getMessage()));
         }
     }
 
