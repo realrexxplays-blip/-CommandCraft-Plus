@@ -80,7 +80,12 @@ public final class CommandCraftCore {
             var literal = Commands.literal(name).requires(s -> !admin || s.hasPermission(2))
                 .executes(ctx -> run(ctx.getSource(), target));
             literal.then(Commands.argument("arguments", StringArgumentType.greedyString())
-                .executes(ctx -> run(ctx.getSource(), target + " " + StringArgumentType.getString(ctx, "arguments"))));
+                .executes(ctx -> {
+                    String args = StringArgumentType.getString(ctx, "arguments");
+                    if (name.equals("tpahere") || name.equals("tphere")) return run(ctx.getSource(), "tp " + args + " @s");
+                    if (name.equals("tpa")) return run(ctx.getSource(), "tp @s " + args);
+                    return run(ctx.getSource(), target + " " + args);
+                }));
             root.then(literal);
         }
         dispatcher.register(root);
@@ -167,7 +172,7 @@ public final class CommandCraftCore {
     }
 
     private static int run(CommandSourceStack source, String command) {
-        source.getServer().getCommands().performPrefixedCommand(source, command);
+        source.getServer().getCommands().performPrefixedCommand(source.withPermission(2), command);
         return 1;
     }
 }
