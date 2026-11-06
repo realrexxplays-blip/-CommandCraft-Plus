@@ -41,8 +41,8 @@ public final class CommandCraftDirectCommands {
 
         d.register(Commands.literal("ping").executes(c -> {
             ServerPlayer p = c.getSource().getPlayerOrException();
-            int ms = p.connection.getLatency();
-            c.getSource().sendSuccess(() -> Component.literal("Your ping: " + ms + " ms"), false);
+            c.getSource().sendSuccess(() -> Component.literal(
+                "Ping measurement is not exposed by the current Minecraft 26.3 server API."), false);
             return 1;
         }));
         d.register(Commands.literal("playtime").executes(c -> {
@@ -56,7 +56,7 @@ public final class CommandCraftDirectCommands {
                 c.getSource().sendSuccess(() -> Component.literal("Player: " + p.getGameProfile().name() +
                     " | Dimension: " + p.level().dimension().identifier() + " | Position: " +
                     p.blockPosition().getX() + ", " + p.blockPosition().getY() + ", " +
-                    p.blockPosition().getZ() + " | Ping: " + p.connection.getLatency() + " ms"), false);
+                    p.blockPosition().getZ()), false);
                 return 1;
             })));
         d.register(Commands.literal("seen").then(Commands.argument("player", StringArgumentType.word())
