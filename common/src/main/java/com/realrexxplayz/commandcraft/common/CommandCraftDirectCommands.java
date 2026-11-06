@@ -191,7 +191,7 @@ public final class CommandCraftDirectCommands {
         var data = loadData(source);
         String value = data.getProperty("home." + player.getUUID() + "." + name + ".location");
         if (value == null) return fail(source, "No saved home named '" + name + "'.");
-        String[] parts = value.split("\\\\|", -1);
+        String[] parts = value.split("\\|", -1);
         if (parts.length != 6) return fail(source, "Saved home data is invalid.");
         source.sendSuccess(() -> Component.literal("Home '" + name + "' — " + parts[0] + " at "
             + parts[1] + ", " + parts[2] + ", " + parts[3]), false);
