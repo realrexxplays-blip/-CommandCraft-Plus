@@ -11,6 +11,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.storage.LevelResource;
+import net.minecraft.world.level.storage.LevelData;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -84,7 +85,7 @@ public final class CommandCraftCore {
         cc.then(Commands.literal("spawn").executes(c -> {
             ServerPlayer p = c.getSource().getPlayerOrException();
             var level = p.level();
-            var pos = level.getSharedSpawnPos();
+            var pos = level.getRespawnData().pos();
             remember(p);
             p.teleportTo(level, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
                 java.util.Set.of(), p.getYRot(), p.getXRot(), true);
@@ -94,7 +95,7 @@ public final class CommandCraftCore {
 
         cc.then(Commands.literal("setspawn").requires(Commands.hasPermission(Commands.LEVEL_ADMINS)).executes(c -> {
             var p = c.getSource().getPlayerOrException();
-            p.level().setDefaultSpawnPos(p.blockPosition(), p.getYRot());
+            p.level().setRespawnData(LevelData.RespawnData.of(p.level().dimension(), p.blockPosition(), p.getYRot(), p.getXRot()));
             c.getSource().sendSuccess(() -> Component.literal("World spawn updated to your position."), true);
             return 1;
         }));
