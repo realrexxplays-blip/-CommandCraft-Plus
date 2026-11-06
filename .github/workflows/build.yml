@@ -19,13 +19,17 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "9.8.2"
-      - name: Build both loaders
-        run: gradle :fabric:build :neoforge:build --no-daemon
+      - name: Build Fabric
+        run: gradle :fabric:build --no-daemon
+      - name: Build NeoForge
+        run: gradle :neoforge:build --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: CommandCraft-Plus-JARs
           path: |
             fabric/build/libs/*.jar
+            !fabric/build/libs/*-sources.jar
             neoforge/build/libs/*.jar
+            !neoforge/build/libs/*-sources.jar
           if-no-files-found: error
           retention-days: 30
