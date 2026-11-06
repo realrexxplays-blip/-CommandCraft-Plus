@@ -14,7 +14,7 @@ World and time: `setspawn`, `spawnpoint`, `day`, `night`, `noon`, `midnight`, `s
 
 Player and utility: `gamemode`, `gms`, `gmc`, `gma`, `gmsp`, `xp`, `effect`, `cleareffects`, `tp`, `tpa`, `tpahere`, `tphere`, `msg`, `say`, `rules`, `list`, `seed`.
 
-Server administration: `kick`, `ban`, `pardon`, `whitelist`, `unwhitelist`, `op`, `locate`, `locatebiome`, `spectate`, `spreadplayers`, `title`, `tellraw`, `team`, `scoreboard`.
+Server administration: `kick`, `ban`, `pardon`, `whitelist`, `unwhitelist`, `op`, `deop`, `locate`, `locatebiome`, `spectate`, `spreadplayers`, `title`, `tellraw`, `team`, `scoreboard`, `tag`, `recipe`, `teleport`.
 
 All command names are used under the `/cc` root. Example: `/cc day`, `/cc sethome base`, `/cc home base`, `/cc setwarp shop`, `/cc warp shop`.
 
