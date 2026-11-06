@@ -217,7 +217,7 @@ public final class CommandCraftDirectCommands {
         try {
             java.nio.file.Files.createDirectories(file.getParent());
             try (var output = java.nio.file.Files.newOutputStream(file)) {
-                data.store(output, "CommandCraft+ world data");
+                data.store(output, "CommandCore+ world data");
             }
         } catch (java.io.IOException e) {
             return fail(source, "Could not save renamed home: " + e.getMessage());
