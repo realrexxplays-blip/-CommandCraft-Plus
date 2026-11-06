@@ -233,7 +233,7 @@ public final class CommandCraftCore {
 
     private static void registerSavedLocation(com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> root,
                                               String command, SavedKind kind, SavedAction action, boolean adminOnly) {
-        var literal = Commands.literal(command).requires(s -> !adminOnly || s.hasPermission(2));
+        var literal = Commands.literal(command).requires(s -> !adminOnly || Commands.hasPermission(Commands.LEVEL_ADMINS).test(s));
         literal.executes(c -> savedLocation(c.getSource(), kind, action, "home"));
         literal.then(Commands.argument("name", StringArgumentType.word()).executes(c ->
             savedLocation(c.getSource(), kind, action, StringArgumentType.getString(c, "name"))));
