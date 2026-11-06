@@ -52,7 +52,7 @@ public final class CommandCraftCore {
             var pos = p.position();
             c.getSource().sendSuccess(() -> Component.literal(String.format(
                 "Coordinates: %.1f, %.1f, %.1f (%s)", pos.x, pos.y, pos.z,
-                p.serverLevel().dimension().location()
+                p.level().dimension().identifier()
             )), false);
             return 1;
         }));
@@ -61,20 +61,20 @@ public final class CommandCraftCore {
             ServerPlayer p = c.getSource().getPlayerOrException();
             var pos = p.blockPosition();
             c.getSource().sendSuccess(() -> Component.literal(
-                "You are in " + p.serverLevel().dimension().location() + " at " +
+                "You are in " + p.level().dimension().identifier() + " at " +
                 pos.getX() + ", " + pos.getY() + ", " + pos.getZ()
             ), false);
             return 1;
         }));
 
-        cc.then(Commands.literal("heal").requires(s -> s.hasPermission(2)).executes(c -> {
+        cc.then(Commands.literal("heal").requires(Commands.hasPermission(Commands.LEVEL_ADMINS)).executes(c -> {
             ServerPlayer p = c.getSource().getPlayerOrException();
             p.setHealth(p.getMaxHealth());
             c.getSource().sendSuccess(() -> Component.literal("Your health has been restored."), false);
             return 1;
         }));
 
-        cc.then(Commands.literal("feed").requires(s -> s.hasPermission(2)).executes(c -> {
+        cc.then(Commands.literal("feed").requires(Commands.hasPermission(Commands.LEVEL_ADMINS)).executes(c -> {
             ServerPlayer p = c.getSource().getPlayerOrException();
             p.getFoodData().eat(20, 20.0F);
             c.getSource().sendSuccess(() -> Component.literal("Your hunger has been restored."), false);
@@ -83,7 +83,7 @@ public final class CommandCraftCore {
 
         cc.then(Commands.literal("spawn").executes(c -> {
             ServerPlayer p = c.getSource().getPlayerOrException();
-            var level = p.serverLevel();
+            var level = p.level();
             var pos = level.getSharedSpawnPos();
             remember(p);
             p.teleportTo(level, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
@@ -92,9 +92,9 @@ public final class CommandCraftCore {
             return 1;
         }));
 
-        cc.then(Commands.literal("setspawn").requires(s -> s.hasPermission(2)).executes(c -> {
+        cc.then(Commands.literal("setspawn").requires(Commands.hasPermission(Commands.LEVEL_ADMINS)).executes(c -> {
             var p = c.getSource().getPlayerOrException();
-            p.serverLevel().setDefaultSpawnPos(p.blockPosition(), p.getYRot());
+            p.level().setDefaultSpawnPos(p.blockPosition(), p.getYRot());
             c.getSource().sendSuccess(() -> Component.literal("World spawn updated to your position."), true);
             return 1;
         }));
@@ -119,7 +119,7 @@ public final class CommandCraftCore {
 
         cc.then(Commands.literal("near").executes(c -> {
             ServerPlayer p = c.getSource().getPlayerOrException();
-            var nearby = p.serverLevel().players().stream()
+            var nearby = p.level().getPlayers(other -> true).stream()
                 .filter(other -> other != p && other.distanceTo(p) <= 100.0)
                 .map(ServerPlayer::getGameProfile)
                 .map(profile -> profile.name())
@@ -133,20 +133,20 @@ public final class CommandCraftCore {
         cc.then(Commands.literal("worldinfo").executes(c -> {
             var level = c.getSource().getLevel();
             c.getSource().sendSuccess(() -> Component.literal(
-                "Dimension: " + level.dimension().location() + " | Day time: " + level.getDayTime() +
+                "Dimension: " + level.dimension().identifier() + " | Day time: " + level.getLevelData().getGameTime() +
                 " | Players: " + c.getSource().getServer().getPlayerList().getPlayerCount()
             ), false);
             return 1;
         }));
 
-        cc.then(Commands.literal("day").requires(s -> s.hasPermission(2)).executes(c -> setTime(c.getSource(), 1000L, "Day")));
-        cc.then(Commands.literal("night").requires(s -> s.hasPermission(2)).executes(c -> setTime(c.getSource(), 13000L, "Night")));
-        cc.then(Commands.literal("weather").requires(s -> s.hasPermission(2))
+        cc.then(Commands.literal("day").requires(Commands.hasPermission(Commands.LEVEL_ADMINS)).executes(c -> setTime(c.getSource(), 1000L, "Day")));
+        cc.then(Commands.literal("night").requires(Commands.hasPermission(Commands.LEVEL_ADMINS)).executes(c -> setTime(c.getSource(), 13000L, "Night")));
+        cc.then(Commands.literal("weather").requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
             .then(Commands.literal("clear").executes(c -> setWeather(c.getSource(), false, false)))
             .then(Commands.literal("rain").executes(c -> setWeather(c.getSource(), true, false)))
             .then(Commands.literal("thunder").executes(c -> setWeather(c.getSource(), true, true))));
 
-        cc.then(Commands.literal("broadcast").requires(s -> s.hasPermission(2))
+        cc.then(Commands.literal("broadcast").requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
             .then(Commands.argument("message", StringArgumentType.greedyString()).executes(c -> {
                 Component message = Component.literal("[CommandCraft+] " + StringArgumentType.getString(c, "message"));
                 c.getSource().getServer().getPlayerList().broadcastSystemMessage(message, false);
@@ -169,7 +169,7 @@ public final class CommandCraftCore {
             return 1;
         }));
 
-        cc.then(Commands.literal("fly").requires(s -> s.hasPermission(2)).executes(c -> {
+        cc.then(Commands.literal("fly").requires(Commands.hasPermission(Commands.LEVEL_ADMINS)).executes(c -> {
             ServerPlayer p = c.getSource().getPlayerOrException();
             var abilities = p.getAbilities();
             abilities.mayfly = !abilities.mayfly;
@@ -179,7 +179,7 @@ public final class CommandCraftCore {
             return 1;
         }));
 
-        cc.then(Commands.literal("god").requires(s -> s.hasPermission(2)).executes(c -> {
+        cc.then(Commands.literal("god").requires(Commands.hasPermission(Commands.LEVEL_ADMINS)).executes(c -> {
             ServerPlayer p = c.getSource().getPlayerOrException();
             boolean enabled;
             if (GOD_MODE.add(p.getUUID())) {
@@ -195,7 +195,7 @@ public final class CommandCraftCore {
             return 1;
         }));
 
-        cc.then(Commands.literal("vanish").requires(s -> s.hasPermission(2)).executes(c -> {
+        cc.then(Commands.literal("vanish").requires(Commands.hasPermission(Commands.LEVEL_ADMINS)).executes(c -> {
             ServerPlayer p = c.getSource().getPlayerOrException();
             p.setInvisible(!p.isInvisible());
             c.getSource().sendSuccess(() -> Component.literal("Vanish " + (p.isInvisible() ? "enabled" : "disabled") + "."), false);
@@ -206,7 +206,7 @@ public final class CommandCraftCore {
             String motd = load(c.getSource()).getProperty("server.motd", "Welcome to the server!");
             c.getSource().sendSuccess(() -> Component.literal(motd), false);
             return 1;
-        }).then(Commands.argument("message", StringArgumentType.greedyString()).requires(s -> s.hasPermission(2))
+        }).then(Commands.argument("message", StringArgumentType.greedyString()).requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
             .executes(c -> {
                 Properties data = load(c.getSource());
                 data.setProperty("server.motd", StringArgumentType.getString(c, "message"));
@@ -215,7 +215,7 @@ public final class CommandCraftCore {
                 return 1;
             })));
 
-        cc.then(Commands.literal("maintenance").requires(s -> s.hasPermission(2)).executes(c -> {
+        cc.then(Commands.literal("maintenance").requires(Commands.hasPermission(Commands.LEVEL_ADMINS)).executes(c -> {
             Properties data = load(c.getSource());
             boolean enabled = Boolean.parseBoolean(data.getProperty("server.maintenance", "false"));
             data.setProperty("server.maintenance", Boolean.toString(!enabled));
@@ -269,7 +269,7 @@ public final class CommandCraftCore {
         String key = prefix + name + ".location";
         if (action == SavedAction.SET) {
             var pos = player.position();
-            String value = player.serverLevel().dimension().location() + "|" + pos.x + "|" + pos.y + "|" + pos.z + "|" + player.getYRot() + "|" + player.getXRot();
+            String value = player.level().dimension().identifier() + "|" + pos.x + "|" + pos.y + "|" + pos.z + "|" + player.getYRot() + "|" + player.getXRot();
             data.setProperty(key, value);
             save(source, data);
             source.sendSuccess(() -> Component.literal((kind == SavedKind.HOME ? "Home" : "Warp") + " '" + name + "' saved."), false);
@@ -348,7 +348,7 @@ public final class CommandCraftCore {
         ServerPlayer mover = request.bringRequester() ? target : requester;
         ServerPlayer destination = request.bringRequester() ? requester : target;
         remember(mover);
-        mover.teleportTo(destination.serverLevel(), destination.getX(), destination.getY(), destination.getZ(),
+        mover.teleportTo(destination.level(), destination.getX(), destination.getY(), destination.getZ(),
             java.util.Set.of(), destination.getYRot(), destination.getXRot(), true);
         requester.sendSystemMessage(Component.literal("Teleport request accepted."));
         source.sendSuccess(() -> Component.literal("Teleport request accepted."), false);
@@ -393,7 +393,7 @@ public final class CommandCraftCore {
     }
 
     private static void remember(ServerPlayer player) {
-        LAST_POSITIONS.put(player.getUUID(), new LastPosition(player.serverLevel().dimension(),
+        LAST_POSITIONS.put(player.getUUID(), new LastPosition(player.level().dimension(),
             player.getX(), player.getY(), player.getZ(), player.getYRot(), player.getXRot()));
     }
 
