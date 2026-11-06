@@ -1,1 +1,19 @@
-{"schemaVersion":1,"id":"commandcraft","version":"0.1.0","name":"CommandCraft+","description":"Your world. Your server. Your commands.","environment":"*","entrypoints":{"main":["com.realrexxplayz.commandcraft.fabric.CommandCraftFabric"]},"depends":{"fabricloader":">=0.20.1","minecraft":"~26.3","java":">=25","fabric-api":"*"}}
+{
+  "schemaVersion": 1,
+  "id": "commandcoreplus",
+  "version": "0.1.0",
+  "name": "CommandCore+",
+  "description": "More commands. More control. Your world, your rules.",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.realrexxplayz.commandcraft.fabric.CommandCraftFabric"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.20.1",
+    "minecraft": "~26.3",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
