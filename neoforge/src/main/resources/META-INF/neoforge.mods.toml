@@ -2,7 +2,7 @@ modLoader="javafml"
 loaderVersion="[1,)"
 license="All Rights Reserved"
 [[mods]]
-modId="commandcraft"
+modId="commandcoreplus"
 version="0.1.0"
-displayName="CommandCraft+"
+displayName="CommandCore+"
 description='''Your world. Your server. Your commands.'''
