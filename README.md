@@ -2,12 +2,23 @@
 
 **Your world. Your server. Your commands.**
 
-Initial dual-loader project foundation for Minecraft Java 26.3 and Java 25.
+CommandCraft+ is a dual-loader Minecraft Java utility and server-management mod for Minecraft 26.3 and Java 25.
 
-## Initial commands
-- `/cc help` — list currently implemented commands
-- `/cc coords` — show current coordinates
-- `/cc heal` — restore health (permission level 2)
-- `/cc feed` — restore hunger (permission level 2)
+## The 64-command catalog
 
-The full planned 64-command catalog, homes, warps, teleport requests, persistent player data, server announcements, permissions, cooldowns, GUI, and configuration are still roadmap work. This is not yet the completed release.
+Core: `/cc help`, `coords`, `heal`, `feed`, `spawn`.
+
+Homes and warps: `sethome`, `home`, `delhome`, `homes`, `setwarp`, `warp`, `delwarp`, `warps`. Homes are player-specific; warps are shared by the world. Saved locations persist in the world save folder.
+
+World and time: `setspawn`, `spawnpoint`, `day`, `night`, `noon`, `midnight`, `sunrise`, `sunset`, `weather`, `clearweather`, `rain`, `thunder`, `time`, `difficulty`, `gamerule`, `worldborder`.
+
+Player and utility: `gamemode`, `gms`, `gmc`, `gma`, `gmsp`, `experience`, `effect`, `cleareffects`, `tp`, `tpa`, `tpahere`, `tphere`, `msg`, `say`, `announce`, `rules`, `list`, `seed`.
+
+Server administration: `kick`, `ban`, `pardon`, `whitelist`, `unwhitelist`, `op`, `deop`, `locate`, `locatebiome`, `spectate`, `spreadplayers`, `title`, `tellraw`, `team`, `scoreboard`, `tag`, `recipe`, `xp` is available as `experience`.
+
+All command names are used under the `/cc` root. Example: `/cc day`, `/cc sethome base`, `/cc home base`, `/cc setwarp shop`, `/cc warp shop`.
+
+Commands that change world/server settings or moderate players require permission level 2. Some entries are convenient aliases for vanilla commands and use their normal argument syntax and permission checks. Teleport aliases are direct vanilla teleports, not a request/accept workflow. GUI screens, teleport request queues, back-history, player profiles, and configurable permission/cooldown systems are not included in this command pass yet.
+
+## Build
+Use JDK 25 and run `gradle :fabric:build :neoforge:build --no-daemon`. GitHub Actions builds both loaders and uploads the resulting JARs as workflow artifacts.
