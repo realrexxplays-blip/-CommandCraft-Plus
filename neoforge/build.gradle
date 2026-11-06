@@ -1,9 +1,21 @@
 plugins { id "net.neoforged.moddev" }
+
 base { archivesName = "CommandCraft-Plus-NeoForge" }
+
 neoForge {
-    version = "26.3.0.101"
-    runs { client { client() }; server { server(); programArgument "--nogui" } }
+    version = project.neoforge_version
+    runs {
+        client { client() }
+        server { server(); programArgument "--nogui" }
+    }
 }
+
 sourceSets.main.java.srcDir("../common/src/main/java")
-java { toolchain.languageVersion = JavaLanguageVersion.of(25); withSourcesJar() }
-tasks.withType(JavaCompile).configureEach { options.release = 25 }
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+    withSourcesJar()
+}
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+    options.encoding = "UTF-8"
+}
