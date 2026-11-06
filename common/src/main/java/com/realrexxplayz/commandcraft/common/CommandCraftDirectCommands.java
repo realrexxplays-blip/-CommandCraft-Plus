@@ -144,10 +144,11 @@ public final class CommandCraftDirectCommands {
             return 1;
         }));
         d.register(Commands.literal("homeinfo").then(Commands.argument("name", StringArgumentType.word())
-            .executes(c -> unavailable(c.getSource(), "Home information display"))));
+            .executes(c -> homeInfo(c.getSource(), StringArgumentType.getString(c, "name")))));
         d.register(Commands.literal("renamehome").then(Commands.argument("old", StringArgumentType.word())
             .then(Commands.argument("new", StringArgumentType.word()).executes(c ->
-                unavailable(c.getSource(), "Home renaming")))));
+                renameHome(c.getSource(), StringArgumentType.getString(c, "old"),
+                    StringArgumentType.getString(c, "new"))))));
     }
 
     private static void alias(CommandDispatcher<CommandSourceStack> d, String name, String ccName, boolean args) {
@@ -161,6 +162,67 @@ public final class CommandCraftDirectCommands {
         ServerPlayer p = source.getPlayerOrException();
         source.getServer().getCommands().performPrefixedCommand(source,
             "spreadplayers ~ ~ 100 10000 false " + p.getGameProfile().name());
+        return 1;
+    }
+
+
+    private static java.nio.file.Path dataFile(CommandSourceStack source) {
+        return source.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
+            .resolve("commandcraft-plus.properties");
+    }
+
+    private static java.util.Properties loadData(CommandSourceStack source) {
+        var data = new java.util.Properties();
+        var file = dataFile(source);
+        if (java.nio.file.Files.exists(file)) {
+            try (var input = java.nio.file.Files.newInputStream(file)) {
+                data.load(input);
+            } catch (java.io.IOException e) {
+                source.sendFailure(Component.literal("Could not read saved locations: " + e.getMessage()));
+            }
+        }
+        return data;
+    }
+
+    private static int homeInfo(CommandSourceStack source, String name)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        var player = source.getPlayerOrException();
+        if (!name.matches("[A-Za-z0-9_-]{1,24}")) return fail(source, "Invalid home name.");
+        var data = loadData(source);
+        String value = data.getProperty("home." + player.getUUID() + "." + name + ".location");
+        if (value == null) return fail(source, "No saved home named '" + name + "'.");
+        String[] parts = value.split("\\\\|", -1);
+        if (parts.length != 6) return fail(source, "Saved home data is invalid.");
+        source.sendSuccess(() -> Component.literal("Home '" + name + "' — " + parts[0] + " at "
+            + parts[1] + ", " + parts[2] + ", " + parts[3]), false);
+        return 1;
+    }
+
+    private static int renameHome(CommandSourceStack source, String oldName, String newName)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        var player = source.getPlayerOrException();
+        if (!oldName.matches("[A-Za-z0-9_-]{1,24}") || !newName.matches("[A-Za-z0-9_-]{1,24}"))
+            return fail(source, "Home names must be 1-24 letters, numbers, underscores or hyphens.");
+        if (oldName.equalsIgnoreCase(newName)) return fail(source, "Choose a different home name.");
+        var data = loadData(source);
+        String prefix = "home." + player.getUUID() + ".";
+        String oldKey = prefix + oldName + ".location";
+        String newKey = prefix + newName + ".location";
+        String value = data.getProperty(oldKey);
+        if (value == null) return fail(source, "No saved home named '" + oldName + "'.");
+        if (data.containsKey(newKey)) return fail(source, "A home named '" + newName + "' already exists.");
+        data.setProperty(newKey, value);
+        data.remove(oldKey);
+        var file = dataFile(source);
+        try {
+            java.nio.file.Files.createDirectories(file.getParent());
+            try (var output = java.nio.file.Files.newOutputStream(file)) {
+                data.store(output, "CommandCraft+ world data");
+            }
+        } catch (java.io.IOException e) {
+            return fail(source, "Could not save renamed home: " + e.getMessage());
+        }
+        source.sendSuccess(() -> Component.literal("Renamed home '" + oldName + "' to '" + newName + "'."), false);
         return 1;
     }
 
