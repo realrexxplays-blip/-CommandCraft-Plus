@@ -1,4 +1,4 @@
-name: Build CommandCraft+
+name: Build CommandCore+
 on:
   push:
     branches: [main]
@@ -25,7 +25,7 @@ jobs:
         run: gradle :neoforge:build --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: CommandCraft-Plus-JARs
+          name: CommandCore-Plus-JARs
           path: |
             fabric/build/libs/*.jar
             !fabric/build/libs/*-sources.jar
