@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.LevelResource;
@@ -12,167 +13,415 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Loader-neutral CommandCraft+ command implementation.
+ * Data is stored per-world in commandcraft-plus.properties.
+ */
 public final class CommandCraftCore {
-    private static final String[][] ALIASES = {
-        {"setspawn","setworldspawn","true"},{"spawnpoint","spawnpoint","true"},
-        {"day","time set day","true"},{"night","time set night","true"},{"noon","time set noon","true"},{"midnight","time set midnight","true"},{"sunrise","time set 23000","true"},{"sunset","time set 12000","true"},
-        {"weather","weather","true"},{"clearweather","weather clear","true"},{"rain","weather rain","true"},{"thunder","weather thunder","true"},{"time","time","true"},{"difficulty","difficulty","true"},{"gamemode","gamemode","true"},{"gms","gamemode survival","true"},{"gmc","gamemode creative","true"},{"gma","gamemode adventure","true"},{"gmsp","gamemode spectator","true"},
-        {"gamerule","gamerule","true"},{"worldborder","worldborder","true"},{"xp","experience","true"},{"effect","effect","true"},{"cleareffects","effect clear @s","true"},
-        {"tp","tp","true"},{"tpa","tp","true"},{"tpahere","tp","true"},{"tphere","tp","true"},
-        {"msg","tell","false"},{"say","say","true"},{"rules","help","false"},
-        {"kick","kick","true"},{"ban","ban","true"},{"pardon","pardon","true"},{"whitelist","whitelist","true"},{"unwhitelist","whitelist remove","true"},{"op","op","true"},{"deop","deop","true"},
-        {"list","list","false"},{"seed","seed","true"},{"locate","locate","true"},{"locatebiome","locate biome","true"},{"spectate","spectate","true"},{"spreadplayers","spreadplayers","true"},
-        {"title","title","true"},{"tellraw","tellraw","true"},{"team","team","true"},{"scoreboard","scoreboard","true"},{"tag","tag","true"},{"recipe","recipe","true"},{"teleport","tp","true"}
-    };
+    private static final Map<UUID, TeleportRequest> REQUESTS = new ConcurrentHashMap<>();
+    private static final Map<UUID, LastPosition> LAST_POSITIONS = new ConcurrentHashMap<>();
+    private static final Map<UUID, UUID> LAST_REQUESTS = new ConcurrentHashMap<>();
 
     private CommandCraftCore() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        var root = Commands.literal("cc");
-        root.then(Commands.literal("help").executes(ctx -> {
-            ctx.getSource().sendSuccess(() -> Component.literal(
-                "CommandCraft+ commands (64): help, coords, heal, feed, spawn, homes/warps, teleport, time, weather, player and server tools. Use /cc <command>."
+        var cc = Commands.literal("cc");
+
+        cc.then(Commands.literal("help").executes(c -> {
+            c.getSource().sendSuccess(() -> Component.literal(
+                "CommandCraft+: homes, warps, tpa, tpahere, tpaccept, tpdeny, tpacancel, back, spawn, rtp, " +
+                "coords, near, whereami, heal, feed, fly, god, vanish, day, night, weather, broadcast, rules, motd, worldinfo."
+            ), false);
+            c.getSource().sendSuccess(() -> Component.literal(
+                "Use /cc help <category> in a future update for detailed help. Admin commands require permission level 2."
             ), false);
             return 1;
         }));
-        root.then(Commands.literal("coords").executes(ctx -> {
-            var p = ctx.getSource().getPosition();
-            ctx.getSource().sendSuccess(() -> Component.literal(String.format("X %.1f  Y %.1f  Z %.1f", p.x, p.y, p.z)), false);
+
+        cc.then(Commands.literal("coords").executes(c -> {
+            ServerPlayer p = c.getSource().getPlayerOrException();
+            var pos = p.position();
+            c.getSource().sendSuccess(() -> Component.literal(String.format(
+                "Coordinates: %.1f, %.1f, %.1f (%s)", pos.x, pos.y, pos.z,
+                p.serverLevel().dimension().location()
+            )), false);
             return 1;
         }));
-        root.then(Commands.literal("heal").requires(s -> s.hasPermission(2)).executes(ctx -> {
-            ServerPlayer p = ctx.getSource().getPlayerOrException();
+
+        cc.then(Commands.literal("whereami").executes(c -> {
+            ServerPlayer p = c.getSource().getPlayerOrException();
+            var pos = p.blockPosition();
+            c.getSource().sendSuccess(() -> Component.literal(
+                "You are in " + p.serverLevel().dimension().location() + " at " +
+                pos.getX() + ", " + pos.getY() + ", " + pos.getZ()
+            ), false);
+            return 1;
+        }));
+
+        cc.then(Commands.literal("heal").requires(s -> s.hasPermission(2)).executes(c -> {
+            ServerPlayer p = c.getSource().getPlayerOrException();
             p.setHealth(p.getMaxHealth());
-            ctx.getSource().sendSuccess(() -> Component.literal("Health restored."), false);
+            c.getSource().sendSuccess(() -> Component.literal("Your health has been restored."), false);
             return 1;
         }));
-        root.then(Commands.literal("feed").requires(s -> s.hasPermission(2)).executes(ctx -> {
-            ServerPlayer p = ctx.getSource().getPlayerOrException();
+
+        cc.then(Commands.literal("feed").requires(s -> s.hasPermission(2)).executes(c -> {
+            ServerPlayer p = c.getSource().getPlayerOrException();
             p.getFoodData().eat(20, 20.0F);
-            ctx.getSource().sendSuccess(() -> Component.literal("Food restored."), false);
-            return 1;
-        }));
-        root.then(Commands.literal("spawn").executes(ctx -> {
-            var source = ctx.getSource();
-            ServerPlayer p = source.getPlayerOrException();
-            var pos = source.getLevel().getSharedSpawnPos();
-            run(source, "execute in " + source.getLevel().dimension().location() + " run tp @s " +
-                (pos.getX() + 0.5) + " " + pos.getY() + " " + (pos.getZ() + 0.5));
+            c.getSource().sendSuccess(() -> Component.literal("Your hunger has been restored."), false);
             return 1;
         }));
 
-        registerNamedStore(root, "sethome", "home", Store.HOME, Action.SET);
-        registerNamedStore(root, "home", "home", Store.HOME, Action.GO);
-        registerNamedStore(root, "delhome", "home", Store.HOME, Action.DELETE);
-        registerList(root, "homes", Store.HOME);
-        registerNamedStore(root, "setwarp", null, Store.WARP, Action.SET);
-        registerNamedStore(root, "warp", null, Store.WARP, Action.GO);
-        registerNamedStore(root, "delwarp", null, Store.WARP, Action.DELETE);
-        registerList(root, "warps", Store.WARP);
+        cc.then(Commands.literal("spawn").executes(c -> {
+            ServerPlayer p = c.getSource().getPlayerOrException();
+            var level = p.serverLevel();
+            var pos = level.getSharedSpawnPos();
+            remember(p);
+            p.teleportTo(level, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
+                java.util.Set.of(), p.getYRot(), p.getXRot());
+            c.getSource().sendSuccess(() -> Component.literal("Teleported to this world's spawn."), false);
+            return 1;
+        }));
 
-        for (String[] alias : ALIASES) {
-            String name = alias[0], target = alias[1];
-            boolean admin = Boolean.parseBoolean(alias[2]);
-            var literal = Commands.literal(name).requires(s -> !admin || s.hasPermission(2))
-                .executes(ctx -> run(ctx.getSource(), target));
-            literal.then(Commands.argument("arguments", StringArgumentType.greedyString())
-                .executes(ctx -> {
-                    String args = StringArgumentType.getString(ctx, "arguments");
-                    if (name.equals("tpahere") || name.equals("tphere")) return run(ctx.getSource(), "tp " + args + " @s");
-                    if (name.equals("tpa")) return run(ctx.getSource(), "tp @s " + args);
-                    return run(ctx.getSource(), target + " " + args);
-                }));
-            root.then(literal);
-        }
-        dispatcher.register(root);
+        cc.then(Commands.literal("setspawn").requires(s -> s.hasPermission(2)).executes(c -> {
+            var p = c.getSource().getPlayerOrException();
+            p.serverLevel().setDefaultSpawnPos(p.blockPosition(), p.getYRot());
+            c.getSource().sendSuccess(() -> Component.literal("World spawn updated to your position."), true);
+            return 1;
+        }));
+
+        registerSavedLocation(cc, "sethome", SavedKind.HOME, SavedAction.SET, false);
+        registerSavedLocation(cc, "home", SavedKind.HOME, SavedAction.GO, false);
+        registerSavedLocation(cc, "delhome", SavedKind.HOME, SavedAction.DELETE, false);
+        registerSavedList(cc, "homes", SavedKind.HOME);
+        registerSavedLocation(cc, "setwarp", SavedKind.WARP, SavedAction.SET, true);
+        registerSavedLocation(cc, "warp", SavedKind.WARP, SavedAction.GO, false);
+        registerSavedLocation(cc, "delwarp", SavedKind.WARP, SavedAction.DELETE, true);
+        registerSavedList(cc, "warps", SavedKind.WARP);
+
+        cc.then(Commands.literal("tpa").then(Commands.argument("player", EntityArgument.player())
+            .executes(c -> requestTeleport(c.getSource(), EntityArgument.getPlayer(c, "player"), false))));
+        cc.then(Commands.literal("tpahere").then(Commands.argument("player", EntityArgument.player())
+            .executes(c -> requestTeleport(c.getSource(), EntityArgument.getPlayer(c, "player"), true))));
+        cc.then(Commands.literal("tpaccept").executes(c -> answerRequest(c.getSource(), true)));
+        cc.then(Commands.literal("tpdeny").executes(c -> answerRequest(c.getSource(), false)));
+        cc.then(Commands.literal("tpacancel").executes(c -> cancelRequest(c.getSource())));
+        cc.then(Commands.literal("back").executes(c -> goBack(c.getSource())));
+
+        cc.then(Commands.literal("near").executes(c -> {
+            ServerPlayer p = c.getSource().getPlayerOrException();
+            var nearby = p.serverLevel().players().stream()
+                .filter(other -> other != p && other.distanceTo(p) <= 100.0)
+                .map(ServerPlayer::getGameProfile)
+                .map(profile -> profile.name())
+                .toList();
+            c.getSource().sendSuccess(() -> Component.literal(
+                nearby.isEmpty() ? "No players within 100 blocks." : "Nearby (100 blocks): " + String.join(", ", nearby)
+            ), false);
+            return 1;
+        }));
+
+        cc.then(Commands.literal("worldinfo").executes(c -> {
+            var level = c.getSource().getLevel();
+            c.getSource().sendSuccess(() -> Component.literal(
+                "Dimension: " + level.dimension().location() + " | Day time: " + level.getDayTime() +
+                " | Players: " + c.getSource().getServer().getPlayerList().getPlayerCount()
+            ), false);
+            return 1;
+        }));
+
+        cc.then(Commands.literal("day").requires(s -> s.hasPermission(2)).executes(c -> setTime(c.getSource(), 1000L, "Day")));
+        cc.then(Commands.literal("night").requires(s -> s.hasPermission(2)).executes(c -> setTime(c.getSource(), 13000L, "Night")));
+        cc.then(Commands.literal("weather").requires(s -> s.hasPermission(2))
+            .then(Commands.literal("clear").executes(c -> setWeather(c.getSource(), false, false)))
+            .then(Commands.literal("rain").executes(c -> setWeather(c.getSource(), true, false)))
+            .then(Commands.literal("thunder").executes(c -> setWeather(c.getSource(), true, true))));
+
+        cc.then(Commands.literal("broadcast").requires(s -> s.hasPermission(2))
+            .then(Commands.argument("message", StringArgumentType.greedyString()).executes(c -> {
+                Component message = Component.literal("[CommandCraft+] " + StringArgumentType.getString(c, "message"));
+                c.getSource().getServer().getPlayerList().broadcastSystemMessage(message, false);
+                return 1;
+            })));
+
+        cc.then(Commands.literal("rules").executes(c -> {
+            c.getSource().sendSuccess(() -> Component.literal(
+                "Server rules have not been configured. An administrator can add them in the CommandCraft+ config in a later release."
+            ), false);
+            return 1;
+        }));
+
+        cc.then(Commands.literal("list").executes(c -> {
+            var names = c.getSource().getServer().getPlayerList().getPlayers().stream()
+                .map(player -> player.getGameProfile().name()).toList();
+            c.getSource().sendSuccess(() -> Component.literal(
+                "Online (" + names.size() + "): " + (names.isEmpty() ? "nobody" : String.join(", ", names))
+            ), false);
+            return 1;
+        }));
+
+        cc.then(Commands.literal("fly").requires(s -> s.hasPermission(2)).executes(c -> {
+            ServerPlayer p = c.getSource().getPlayerOrException();
+            var abilities = p.getAbilities();
+            abilities.mayfly = !abilities.mayfly;
+            if (!abilities.mayfly) abilities.flying = false;
+            p.onUpdateAbilities();
+            c.getSource().sendSuccess(() -> Component.literal("Flight " + (abilities.mayfly ? "enabled" : "disabled") + "."), false);
+            return 1;
+        }));
+
+        cc.then(Commands.literal("god").requires(s -> s.hasPermission(2)).executes(c -> {
+            ServerPlayer p = c.getSource().getPlayerOrException();
+            p.setInvulnerable(!p.isInvulnerable());
+            c.getSource().sendSuccess(() -> Component.literal("God mode " + (p.isInvulnerable() ? "enabled" : "disabled") + "."), false);
+            return 1;
+        }));
+
+        cc.then(Commands.literal("vanish").requires(s -> s.hasPermission(2)).executes(c -> {
+            ServerPlayer p = c.getSource().getPlayerOrException();
+            p.setInvisible(!p.isInvisible());
+            c.getSource().sendSuccess(() -> Component.literal("Vanish " + (p.isInvisible() ? "enabled" : "disabled") + "."), false);
+            return 1;
+        }));
+
+        cc.then(Commands.literal("motd").executes(c -> {
+            String motd = load(c.getSource()).getProperty("server.motd", "Welcome to the server!");
+            c.getSource().sendSuccess(() -> Component.literal(motd), false);
+            return 1;
+        }).then(Commands.argument("message", StringArgumentType.greedyString()).requires(s -> s.hasPermission(2))
+            .executes(c -> {
+                Properties data = load(c.getSource());
+                data.setProperty("server.motd", StringArgumentType.getString(c, "message"));
+                save(c.getSource(), data);
+                c.getSource().sendSuccess(() -> Component.literal("CommandCraft+ MOTD updated."), true);
+                return 1;
+            })));
+
+        cc.then(Commands.literal("maintenance").requires(s -> s.hasPermission(2)).executes(c -> {
+            Properties data = load(c.getSource());
+            boolean enabled = Boolean.parseBoolean(data.getProperty("server.maintenance", "false"));
+            data.setProperty("server.maintenance", Boolean.toString(!enabled));
+            save(c.getSource(), data);
+            c.getSource().sendSuccess(() -> Component.literal("Maintenance mode " + (!enabled ? "enabled" : "disabled") +
+                ". (This toggle is informational; it does not yet block logins.)"), true);
+            return 1;
+        }));
+
+        dispatcher.register(cc);
     }
 
-    private enum Store { HOME, WARP }
-    private enum Action { SET, GO, DELETE }
+    private enum SavedKind { HOME, WARP }
+    private enum SavedAction { SET, GO, DELETE }
 
-    private static void registerNamedStore(com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> root,
-                                           String command, String defaultName, Store store, Action action) {
-        var literal = Commands.literal(command).requires(s -> store == Store.HOME || (action != Action.SET && action != Action.DELETE) || s.hasPermission(2));
-        if (defaultName != null) {
-            literal.executes(ctx -> storeAction(ctx.getSource(), store, action, defaultName));
-        }
-        literal.then(Commands.argument("name", StringArgumentType.word()).executes(ctx ->
-            storeAction(ctx.getSource(), store, action, StringArgumentType.getString(ctx, "name"))));
+    private static void registerSavedLocation(com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> root,
+                                              String command, SavedKind kind, SavedAction action, boolean adminOnly) {
+        var literal = Commands.literal(command).requires(s -> !adminOnly || s.hasPermission(2));
+        literal.executes(c -> savedLocation(c.getSource(), kind, action, "home"));
+        literal.then(Commands.argument("name", StringArgumentType.word()).executes(c ->
+            savedLocation(c.getSource(), kind, action, StringArgumentType.getString(c, "name"))));
         root.then(literal);
     }
 
-    private static void registerList(com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> root, String command, Store store) {
-        root.then(Commands.literal(command).executes(ctx -> {
-            var props = load(ctx.getSource());
-            String prefix = store == Store.HOME ? "home." + ctx.getSource().getPlayerOrException().getUUID() + "." : "warp.";
-            List<String> names = new ArrayList<>();
-            for (String key : props.stringPropertyNames()) if (key.startsWith(prefix) && key.endsWith(".data"))
-                names.add(key.substring(prefix.length(), key.length() - 5));
-            ctx.getSource().sendSuccess(() -> Component.literal(names.isEmpty() ? "No saved " + command + "." : command + ": " + String.join(", ", names)), false);
+    private static void registerSavedList(com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> root,
+                                          String command, SavedKind kind) {
+        root.then(Commands.literal(command).executes(c -> {
+            ServerPlayer player = c.getSource().getPlayerOrException();
+            Properties data = load(c.getSource());
+            String prefix = kind == SavedKind.HOME ? "home." + player.getUUID() + "." : "warp.";
+            var names = data.stringPropertyNames().stream()
+                .filter(key -> key.startsWith(prefix) && key.endsWith(".location"))
+                .map(key -> key.substring(prefix.length(), key.length() - ".location".length()))
+                .sorted().toList();
+            c.getSource().sendSuccess(() -> Component.literal(
+                names.isEmpty() ? "No saved " + (kind == SavedKind.HOME ? "homes" : "warps") + "." :
+                    (kind == SavedKind.HOME ? "Homes: " : "Warps: ") + String.join(", ", names)
+            ), false);
             return 1;
         }));
     }
 
-    private static int storeAction(CommandSourceStack source, Store store, Action action, String name) {
+    private static int savedLocation(CommandSourceStack source, SavedKind kind, SavedAction action, String name) throws IOException {
+        ServerPlayer player = source.getPlayerOrException();
         if (!name.matches("[A-Za-z0-9_-]{1,24}")) {
             source.sendFailure(Component.literal("Names must be 1-24 letters, numbers, underscores or hyphens."));
             return 0;
         }
-        try {
-            Properties props = load(source);
-            String prefix = store == Store.HOME ? "home." + source.getPlayerOrException().getUUID() + "." : "warp.";
-            String key = prefix + name + ".data";
-            if (action == Action.SET) {
-                var p = source.getPosition();
-                props.setProperty(key, source.getLevel().dimension().location() + "|" + p.x + "|" + p.y + "|" + p.z);
-                save(source, props);
-                source.sendSuccess(() -> Component.literal((store == Store.HOME ? "Home" : "Warp") + " '" + name + "' saved."), false);
-            } else if (action == Action.DELETE) {
-                if (props.remove(key) == null) {
-                    source.sendFailure(Component.literal("No saved " + (store == Store.HOME ? "home" : "warp") + " named '" + name + "'."));
-                    return 0;
-                }
-                save(source, props);
-                source.sendSuccess(() -> Component.literal("Deleted '" + name + "'."), false);
-            } else {
-                String value = props.getProperty(key);
-                if (value == null) {
-                    source.sendFailure(Component.literal("No saved " + (store == Store.HOME ? "home" : "warp") + " named '" + name + "'."));
-                    return 0;
-                }
-                String[] parts = value.split("\\|", -1);
-                if (parts.length != 4 || !parts[0].matches("[a-z0-9_.-]+:[a-z0-9_./-]+")) {
-                    source.sendFailure(Component.literal("Saved location data is invalid."));
-                    return 0;
-                }
-                run(source, "execute in " + parts[0] + " run tp @s " + parts[1] + " " + parts[2] + " " + parts[3]);
-            }
+        Properties data = load(source);
+        String prefix = kind == SavedKind.HOME ? "home." + player.getUUID() + "." : "warp.";
+        String key = prefix + name + ".location";
+        if (action == SavedAction.SET) {
+            var pos = player.position();
+            String value = player.serverLevel().dimension().location() + "|" + pos.x + "|" + pos.y + "|" + pos.z + "|" + player.getYRot() + "|" + player.getXRot();
+            data.setProperty(key, value);
+            save(source, data);
+            source.sendSuccess(() -> Component.literal((kind == SavedKind.HOME ? "Home" : "Warp") + " '" + name + "' saved."), false);
             return 1;
-        } catch (IOException e) {
-            source.sendFailure(Component.literal("Could not access CommandCraft+ save data: " + e.getMessage()));
+        }
+        if (action == SavedAction.DELETE) {
+            if (data.remove(key) == null) {
+                source.sendFailure(Component.literal("No saved location named '" + name + "'."));
+                return 0;
+            }
+            save(source, data);
+            source.sendSuccess(() -> Component.literal("Deleted '" + name + "'."), false);
+            return 1;
+        }
+        String value = data.getProperty(key);
+        if (value == null) {
+            source.sendFailure(Component.literal("No saved location named '" + name + "'."));
             return 0;
+        }
+        String[] parts = value.split("\\|", -1);
+        if (parts.length != 6) {
+            source.sendFailure(Component.literal("Saved location data is invalid."));
+            return 0;
+        }
+        var dimension = net.minecraft.resources.ResourceLocation.tryParse(parts[0]);
+        if (dimension == null) {
+            source.sendFailure(Component.literal("Saved dimension is invalid."));
+            return 0;
+        }
+        var level = source.getServer().getLevel(net.minecraft.resources.ResourceKey.create(
+            net.minecraft.core.registries.Registries.DIMENSION, dimension));
+        if (level == null) {
+            source.sendFailure(Component.literal("That dimension is not currently available."));
+            return 0;
+        }
+        double x = Double.parseDouble(parts[1]), y = Double.parseDouble(parts[2]), z = Double.parseDouble(parts[3]);
+        float yaw = Float.parseFloat(parts[4]), pitch = Float.parseFloat(parts[5]);
+        remember(player);
+        player.teleportTo(level, x, y, z, java.util.Set.of(), yaw, pitch);
+        source.sendSuccess(() -> Component.literal("Teleported to " + (kind == SavedKind.HOME ? "home " : "warp ") + name + "."), false);
+        return 1;
+    }
+
+    private static int requestTeleport(CommandSourceStack source, ServerPlayer target, boolean bringRequester) {
+        ServerPlayer requester = source.getPlayerOrException();
+        if (requester == target) {
+            source.sendFailure(Component.literal("You cannot send a teleport request to yourself."));
+            return 0;
+        }
+        REQUESTS.put(target.getUUID(), new TeleportRequest(requester.getUUID(), bringRequester));
+        LAST_REQUESTS.put(requester.getUUID(), target.getUUID());
+        target.sendSystemMessage(Component.literal(requester.getGameProfile().name() +
+            (bringRequester ? " wants you to teleport to them." : " wants to teleport to you.") +
+            " Use /cc tpaccept or /cc tpdeny."));
+        source.sendSuccess(() -> Component.literal("Teleport request sent to " + target.getGameProfile().name() + "."), false);
+        return 1;
+    }
+
+    private static int answerRequest(CommandSourceStack source, boolean accept) {
+        ServerPlayer target = source.getPlayerOrException();
+        TeleportRequest request = REQUESTS.remove(target.getUUID());
+        if (request == null) {
+            source.sendFailure(Component.literal("You do not have a pending teleport request."));
+            return 0;
+        }
+        ServerPlayer requester = source.getServer().getPlayerList().getPlayer(request.requester());
+        if (requester == null) {
+            source.sendFailure(Component.literal("The requester is no longer online."));
+            return 0;
+        }
+        if (!accept) {
+            requester.sendSystemMessage(Component.literal(target.getGameProfile().name() + " declined your teleport request."));
+            source.sendSuccess(() -> Component.literal("Teleport request declined."), false);
+            return 1;
+        }
+        ServerPlayer mover = request.bringRequester() ? target : requester;
+        ServerPlayer destination = request.bringRequester() ? requester : target;
+        remember(mover);
+        mover.teleportTo(destination.serverLevel(), destination.getX(), destination.getY(), destination.getZ(),
+            java.util.Set.of(), destination.getYRot(), destination.getXRot());
+        requester.sendSystemMessage(Component.literal("Teleport request accepted."));
+        source.sendSuccess(() -> Component.literal("Teleport request accepted."), false);
+        return 1;
+    }
+
+    private static int cancelRequest(CommandSourceStack source) {
+        ServerPlayer requester = source.getPlayerOrException();
+        UUID targetId = LAST_REQUESTS.remove(requester.getUUID());
+        if (targetId == null) {
+            source.sendFailure(Component.literal("You have no recent teleport request to cancel."));
+            return 0;
+        }
+        TeleportRequest request = REQUESTS.get(targetId);
+        if (request != null && request.requester().equals(requester.getUUID())) {
+            REQUESTS.remove(targetId);
+            ServerPlayer target = source.getServer().getPlayerList().getPlayer(targetId);
+            if (target != null) target.sendSystemMessage(Component.literal("The teleport request was cancelled."));
+            source.sendSuccess(() -> Component.literal("Teleport request cancelled."), false);
+            return 1;
+        }
+        source.sendFailure(Component.literal("That request is no longer pending."));
+        return 0;
+    }
+
+    private static int goBack(CommandSourceStack source) {
+        ServerPlayer player = source.getPlayerOrException();
+        LastPosition last = LAST_POSITIONS.remove(player.getUUID());
+        if (last == null) {
+            source.sendFailure(Component.literal("You do not have a previous CommandCraft+ teleport location."));
+            return 0;
+        }
+        var level = source.getServer().getLevel(last.dimension());
+        if (level == null) {
+            source.sendFailure(Component.literal("Your previous dimension is unavailable."));
+            return 0;
+        }
+        remember(player);
+        player.teleportTo(level, last.x(), last.y(), last.z(), java.util.Set.of(), last.yaw(), last.pitch());
+        source.sendSuccess(() -> Component.literal("Returned to your previous location."), false);
+        return 1;
+    }
+
+    private static void remember(ServerPlayer player) {
+        LAST_POSITIONS.put(player.getUUID(), new LastPosition(player.serverLevel().dimension(),
+            player.getX(), player.getY(), player.getZ(), player.getYRot(), player.getXRot()));
+    }
+
+    private static int setTime(CommandSourceStack source, long time, String label) {
+        source.getLevel().setDayTime(time);
+        source.sendSuccess(() -> Component.literal("Time set to " + label + "."), true);
+        return 1;
+    }
+
+    private static int setWeather(CommandSourceStack source, boolean rain, boolean thunder) {
+        source.getLevel().setWeatherParameters(0, 12000, rain, thunder);
+        source.sendSuccess(() -> Component.literal("Weather updated."), true);
+        return 1;
+    }
+
+    private static Properties load(CommandSourceStack source) {
+        Path file = dataFile(source);
+        Properties properties = new Properties();
+        if (Files.exists(file)) {
+            try (var input = Files.newInputStream(file)) {
+                properties.load(input);
+            } catch (IOException e) {
+                source.sendFailure(Component.literal("Could not read CommandCraft+ data: " + e.getMessage()));
+            }
+        }
+        return properties;
+    }
+
+    private static void save(CommandSourceStack source, Properties properties) throws IOException {
+        Path file = dataFile(source);
+        Files.createDirectories(file.getParent());
+        try (var output = Files.newOutputStream(file)) {
+            properties.store(output, "CommandCraft+ world data");
         }
     }
 
-    private static Properties load(CommandSourceStack source) throws IOException {
-        Path file = source.getServer().getWorldPath(LevelResource.ROOT).resolve("commandcraft-plus.properties");
-        Properties props = new Properties();
-        if (Files.exists(file)) try (var in = Files.newInputStream(file)) { props.load(in); }
-        return props;
+    private static Path dataFile(CommandSourceStack source) {
+        return source.getServer().getWorldPath(LevelResource.ROOT).resolve("commandcraft-plus.properties");
     }
 
-    private static void save(CommandSourceStack source, Properties props) throws IOException {
-        Path file = source.getServer().getWorldPath(LevelResource.ROOT).resolve("commandcraft-plus.properties");
-        Files.createDirectories(file.getParent());
-        try (var out = Files.newOutputStream(file)) { props.store(out, "CommandCraft+ saved homes and warps"); }
-    }
-
-    private static int run(CommandSourceStack source, String command) {
-        source.getServer().getCommands().performPrefixedCommand(source.withPermission(2), command);
-        return 1;
-    }
+    private record TeleportRequest(UUID requester, boolean bringRequester) {}
+    private record LastPosition(net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension,
+                                double x, double y, double z, float yaw, float pitch) {}
 }
