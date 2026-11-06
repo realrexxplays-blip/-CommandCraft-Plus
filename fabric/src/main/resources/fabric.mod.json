@@ -7,7 +7,7 @@
   "environment": "*",
   "entrypoints": {
     "main": [
-      "com.realrexxplayz.commandcraft.fabric.CommandCraftFabric"
+      "com.realrexxplayz.commandcoreplus.fabric.CommandCorePlusFabric"
     ]
   },
   "depends": {
