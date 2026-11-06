@@ -24,9 +24,9 @@ public final class CommandCraftCore {
         {"gamerule","gamerule","true"},{"worldborder","worldborder","true"},{"xp","experience","true"},{"effect","effect","true"},{"cleareffects","effect clear @s","true"},
         {"tp","tp","true"},{"tpa","tp","true"},{"tpahere","tp","true"},{"tphere","tp","true"},
         {"msg","tell","false"},{"say","say","true"},{"rules","help","false"},
-        {"kick","kick","true"},{"ban","ban","true"},{"pardon","pardon","true"},{"whitelist","whitelist","true"},{"unwhitelist","whitelist remove","true"},{"op","op","true"},
+        {"kick","kick","true"},{"ban","ban","true"},{"pardon","pardon","true"},{"whitelist","whitelist","true"},{"unwhitelist","whitelist remove","true"},{"op","op","true"},{"deop","deop","true"},
         {"list","list","false"},{"seed","seed","true"},{"locate","locate","true"},{"locatebiome","locate biome","true"},{"spectate","spectate","true"},{"spreadplayers","spreadplayers","true"},
-        {"title","title","true"},{"tellraw","tellraw","true"},{"team","team","true"},{"scoreboard","scoreboard","true"},
+        {"title","title","true"},{"tellraw","tellraw","true"},{"team","team","true"},{"scoreboard","scoreboard","true"},{"tag","tag","true"},{"recipe","recipe","true"},{"teleport","tp","true"}
     };
 
     private CommandCraftCore() {}
