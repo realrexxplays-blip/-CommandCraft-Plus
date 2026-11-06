@@ -7,14 +7,17 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.storage.LevelResource;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -26,6 +29,7 @@ public final class CommandCraftCore {
     private static final Map<UUID, TeleportRequest> REQUESTS = new ConcurrentHashMap<>();
     private static final Map<UUID, LastPosition> LAST_POSITIONS = new ConcurrentHashMap<>();
     private static final Map<UUID, UUID> LAST_REQUESTS = new ConcurrentHashMap<>();
+    private static final Set<UUID> GOD_MODE = ConcurrentHashMap.newKeySet();
 
     private CommandCraftCore() {}
 
@@ -83,7 +87,7 @@ public final class CommandCraftCore {
             var pos = level.getSharedSpawnPos();
             remember(p);
             p.teleportTo(level, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
-                java.util.Set.of(), p.getYRot(), p.getXRot());
+                java.util.Set.of(), p.getYRot(), p.getXRot(), true);
             c.getSource().sendSuccess(() -> Component.literal("Teleported to this world's spawn."), false);
             return 1;
         }));
@@ -177,8 +181,17 @@ public final class CommandCraftCore {
 
         cc.then(Commands.literal("god").requires(s -> s.hasPermission(2)).executes(c -> {
             ServerPlayer p = c.getSource().getPlayerOrException();
-            p.setInvulnerable(!p.isInvulnerable());
-            c.getSource().sendSuccess(() -> Component.literal("God mode " + (p.isInvulnerable() ? "enabled" : "disabled") + "."), false);
+            boolean enabled;
+            if (GOD_MODE.add(p.getUUID())) {
+                p.addEffect(new MobEffectInstance(MobEffects.RESISTANCE, MobEffectInstance.INFINITE_DURATION, 4, false, false, true));
+                enabled = true;
+            } else {
+                GOD_MODE.remove(p.getUUID());
+                p.removeEffect(MobEffects.RESISTANCE);
+                enabled = false;
+            }
+            final boolean godModeEnabled = enabled;
+            c.getSource().sendSuccess(() -> Component.literal("God mode " + (godModeEnabled ? "enabled" : "disabled") + "."), false);
             return 1;
         }));
 
@@ -281,7 +294,7 @@ public final class CommandCraftCore {
             source.sendFailure(Component.literal("Saved location data is invalid."));
             return 0;
         }
-        var dimension = net.minecraft.resources.ResourceLocation.tryParse(parts[0]);
+        var dimension = Identifier.tryParse(parts[0]);
         if (dimension == null) {
             source.sendFailure(Component.literal("Saved dimension is invalid."));
             return 0;
@@ -295,7 +308,7 @@ public final class CommandCraftCore {
         double x = Double.parseDouble(parts[1]), y = Double.parseDouble(parts[2]), z = Double.parseDouble(parts[3]);
         float yaw = Float.parseFloat(parts[4]), pitch = Float.parseFloat(parts[5]);
         remember(player);
-        player.teleportTo(level, x, y, z, java.util.Set.of(), yaw, pitch);
+        player.teleportTo(level, x, y, z, java.util.Set.of(), yaw, pitch, true);
         source.sendSuccess(() -> Component.literal("Teleported to " + (kind == SavedKind.HOME ? "home " : "warp ") + name + "."), false);
         return 1;
     }
@@ -336,7 +349,7 @@ public final class CommandCraftCore {
         ServerPlayer destination = request.bringRequester() ? requester : target;
         remember(mover);
         mover.teleportTo(destination.serverLevel(), destination.getX(), destination.getY(), destination.getZ(),
-            java.util.Set.of(), destination.getYRot(), destination.getXRot());
+            java.util.Set.of(), destination.getYRot(), destination.getXRot(), true);
         requester.sendSystemMessage(Component.literal("Teleport request accepted."));
         source.sendSuccess(() -> Component.literal("Teleport request accepted."), false);
         return 1;
@@ -374,7 +387,7 @@ public final class CommandCraftCore {
             return 0;
         }
         remember(player);
-        player.teleportTo(level, last.x(), last.y(), last.z(), java.util.Set.of(), last.yaw(), last.pitch());
+        player.teleportTo(level, last.x(), last.y(), last.z(), java.util.Set.of(), last.yaw(), last.pitch(), true);
         source.sendSuccess(() -> Component.literal("Returned to your previous location."), false);
         return 1;
     }
@@ -385,13 +398,13 @@ public final class CommandCraftCore {
     }
 
     private static int setTime(CommandSourceStack source, long time, String label) {
-        source.getLevel().setDayTime(time);
+        source.getServer().getCommands().performPrefixedCommand(source, "time set " + (time == 1000L ? "day" : "night"));
         source.sendSuccess(() -> Component.literal("Time set to " + label + "."), true);
         return 1;
     }
 
     private static int setWeather(CommandSourceStack source, boolean rain, boolean thunder) {
-        source.getLevel().setWeatherParameters(0, 12000, rain, thunder);
+        source.getServer().setWeatherParameters(0, 12000, rain, thunder);
         source.sendSuccess(() -> Component.literal("Weather updated."), true);
         return 1;
     }
