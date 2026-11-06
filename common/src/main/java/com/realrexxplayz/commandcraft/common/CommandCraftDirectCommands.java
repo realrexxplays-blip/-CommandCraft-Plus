@@ -125,9 +125,11 @@ public final class CommandCraftDirectCommands {
             c.getSource().sendSuccess(() -> Component.literal("Held item equipped as a hat."), false);
             return 1;
         }));
-        d.register(Commands.literal("trash").executes(c -> c.getSource().getPlayerOrException().getMainHandItem().isEmpty() ?
-            fail(c.getSource(), "Hold the item you want to discard.") :
-            discardHeld(c.getSource())));
+        d.register(Commands.literal("trash").executes(c -> {
+            c.getSource().sendSuccess(() -> Component.literal(
+                "To discard the item in your main hand, run /trash confirm."), false);
+            return 1;
+        }).then(Commands.literal("confirm").executes(c -> discardHeld(c.getSource()))));
         d.register(Commands.literal("craft").executes(c -> unavailable(c.getSource(), "Portable crafting menu")));
         d.register(Commands.literal("workbench").executes(c -> unavailable(c.getSource(), "Portable crafting menu")));
         d.register(Commands.literal("enderchest").executes(c -> {
@@ -142,7 +144,7 @@ public final class CommandCraftDirectCommands {
             return 1;
         }));
         d.register(Commands.literal("homeinfo").then(Commands.argument("name", StringArgumentType.word())
-            .executes(c -> d.execute("cc home " + StringArgumentType.getString(c, "name"), c.getSource()))));
+            .executes(c -> unavailable(c.getSource(), "Home information display"))));
         d.register(Commands.literal("renamehome").then(Commands.argument("old", StringArgumentType.word())
             .then(Commands.argument("new", StringArgumentType.word()).executes(c ->
                 unavailable(c.getSource(), "Home renaming")))));
