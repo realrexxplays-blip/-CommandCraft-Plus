@@ -2,6 +2,7 @@ package com.realrexxplayz.commandcraft.common;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -259,7 +260,7 @@ public final class CommandCraftCore {
         }));
     }
 
-    private static int savedLocation(CommandSourceStack source, SavedKind kind, SavedAction action, String name) throws IOException {
+    private static int savedLocation(CommandSourceStack source, SavedKind kind, SavedAction action, String name) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         if (!name.matches("[A-Za-z0-9_-]{1,24}")) {
             source.sendFailure(Component.literal("Names must be 1-24 letters, numbers, underscores or hyphens."));
@@ -314,7 +315,7 @@ public final class CommandCraftCore {
         return 1;
     }
 
-    private static int requestTeleport(CommandSourceStack source, ServerPlayer target, boolean bringRequester) {
+    private static int requestTeleport(CommandSourceStack source, ServerPlayer target, boolean bringRequester) throws CommandSyntaxException {
         ServerPlayer requester = source.getPlayerOrException();
         if (requester == target) {
             source.sendFailure(Component.literal("You cannot send a teleport request to yourself."));
@@ -329,7 +330,7 @@ public final class CommandCraftCore {
         return 1;
     }
 
-    private static int answerRequest(CommandSourceStack source, boolean accept) {
+    private static int answerRequest(CommandSourceStack source, boolean accept) throws CommandSyntaxException {
         ServerPlayer target = source.getPlayerOrException();
         TeleportRequest request = REQUESTS.remove(target.getUUID());
         if (request == null) {
@@ -356,7 +357,7 @@ public final class CommandCraftCore {
         return 1;
     }
 
-    private static int cancelRequest(CommandSourceStack source) {
+    private static int cancelRequest(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer requester = source.getPlayerOrException();
         UUID targetId = LAST_REQUESTS.remove(requester.getUUID());
         if (targetId == null) {
@@ -375,7 +376,7 @@ public final class CommandCraftCore {
         return 0;
     }
 
-    private static int goBack(CommandSourceStack source) {
+    private static int goBack(CommandSourceStack source) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
         LastPosition last = LAST_POSITIONS.remove(player.getUUID());
         if (last == null) {
@@ -423,11 +424,15 @@ public final class CommandCraftCore {
         return properties;
     }
 
-    private static void save(CommandSourceStack source, Properties properties) throws IOException {
+    private static void save(CommandSourceStack source, Properties properties) {
         Path file = dataFile(source);
-        Files.createDirectories(file.getParent());
-        try (var output = Files.newOutputStream(file)) {
-            properties.store(output, "CommandCraft+ world data");
+        try {
+            Files.createDirectories(file.getParent());
+            try (var output = Files.newOutputStream(file)) {
+                properties.store(output, "CommandCraft+ world data");
+            }
+        } catch (IOException e) {
+            source.sendFailure(Component.literal("Could not save CommandCraft+ data: " + e.getMessage()));
         }
     }
 
