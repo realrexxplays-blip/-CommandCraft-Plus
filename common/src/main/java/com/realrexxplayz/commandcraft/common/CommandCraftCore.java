@@ -228,6 +228,7 @@ public final class CommandCraftCore {
         }));
 
         dispatcher.register(cc);
+        CommandCraftDirectCommands.register(dispatcher);
     }
 
     private enum SavedKind { HOME, WARP }
