@@ -1,5 +1,5 @@
 plugins { id "net.fabricmc.fabric-loom" }
-base { archivesName = "CommandCraft-Plus-Fabric" }
+base { archivesName = "CommandCore-Plus-Fabric" }
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
