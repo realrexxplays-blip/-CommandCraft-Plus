@@ -1,0 +1,8 @@
+plugins {
+ id "fabric-loom" version "1.19-SNAPSHOT" apply false
+ id "net.neoforged.moddev" version "2.0.148" apply false
+}
+allprojects {
+ group = providers.gradleProperty("maven_group").get()
+ version = providers.gradleProperty("mod_version").get()
+}
