@@ -21,12 +21,12 @@ public final class CommandCraftCore {
         {"setspawn","setworldspawn","true"},{"spawnpoint","spawnpoint","true"},
         {"day","time set day","true"},{"night","time set night","true"},{"noon","time set noon","true"},{"midnight","time set midnight","true"},{"sunrise","time set 23000","true"},{"sunset","time set 12000","true"},
         {"weather","weather","true"},{"clearweather","weather clear","true"},{"rain","weather rain","true"},{"thunder","weather thunder","true"},{"time","time","true"},{"difficulty","difficulty","true"},{"gamemode","gamemode","true"},{"gms","gamemode survival","true"},{"gmc","gamemode creative","true"},{"gma","gamemode adventure","true"},{"gmsp","gamemode spectator","true"},
-        {"gamerule","gamerule","true"},{"worldborder","worldborder","true"},{"experience","experience","true"},{"effect","effect","true"},{"cleareffects","effect clear @s","true"},
+        {"gamerule","gamerule","true"},{"worldborder","worldborder","true"},{"xp","experience","true"},{"effect","effect","true"},{"cleareffects","effect clear @s","true"},
         {"tp","tp","true"},{"tpa","tp","true"},{"tpahere","tp","true"},{"tphere","tp","true"},
-        {"msg","tell","false"},{"say","say","true"},{"announce","say","true"},{"rules","help","false"},
-        {"kick","kick","true"},{"ban","ban","true"},{"pardon","pardon","true"},{"whitelist","whitelist","true"},{"unwhitelist","whitelist remove","true"},{"op","op","true"},{"deop","deop","true"},
+        {"msg","tell","false"},{"say","say","true"},{"rules","help","false"},
+        {"kick","kick","true"},{"ban","ban","true"},{"pardon","pardon","true"},{"whitelist","whitelist","true"},{"unwhitelist","whitelist remove","true"},{"op","op","true"},
         {"list","list","false"},{"seed","seed","true"},{"locate","locate","true"},{"locatebiome","locate biome","true"},{"spectate","spectate","true"},{"spreadplayers","spreadplayers","true"},
-        {"title","title","true"},{"tellraw","tellraw","true"},{"team","team","true"},{"scoreboard","scoreboard","true"},{"tag","tag","true"},{"recipe","recipe","true"}
+        {"title","title","true"},{"tellraw","tellraw","true"},{"team","team","true"},{"scoreboard","scoreboard","true"},
     };
 
     private CommandCraftCore() {}
@@ -91,7 +91,7 @@ public final class CommandCraftCore {
 
     private static void registerNamedStore(com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> root,
                                            String command, String defaultName, Store store, Action action) {
-        var literal = Commands.literal(command).requires(s -> action != Action.SET && action != Action.DELETE || s.hasPermission(2));
+        var literal = Commands.literal(command).requires(s -> store == Store.HOME || (action != Action.SET && action != Action.DELETE) || s.hasPermission(2));
         if (defaultName != null) {
             literal.executes(ctx -> storeAction(ctx.getSource(), store, action, defaultName));
         }
