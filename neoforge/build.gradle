@@ -1,6 +1,6 @@
 plugins { id "net.neoforged.moddev" }
 
-base { archivesName = "CommandCraft-Plus-NeoForge" }
+base { archivesName = "CommandCore-Plus-NeoForge" }
 
 neoForge {
     version = project.neoforge_version
